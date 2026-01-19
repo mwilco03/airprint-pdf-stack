@@ -1,0 +1,51 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!--
+  AirPrint Service Definition for Avahi
+  This file advertises the CUPS printer as an AirPrint-compatible printer
+  Placeholders are replaced by entrypoint.sh at runtime
+-->
+<service-group>
+  <name replace-wildcards="yes">%PRINTER_NAME% @ %h</name>
+
+  <!-- IPP Printer Service -->
+  <service>
+    <type>_ipp._tcp</type>
+    <subtype>_universal._sub._ipp._tcp</subtype>
+    <port>631</port>
+    <txt-record>txtvers=1</txt-record>
+    <txt-record>qtotal=1</txt-record>
+    <txt-record>rp=printers/%PRINTER_NAME%</txt-record>
+    <txt-record>ty=%PRINTER_DESCRIPTION%</txt-record>
+    <txt-record>adminurl=http://localhost:631/printers/%PRINTER_NAME%</txt-record>
+    <txt-record>note=%PRINTER_LOCATION%</txt-record>
+    <txt-record>priority=0</txt-record>
+    <txt-record>product=(GPL Ghostscript)</txt-record>
+    <txt-record>pdl=application/octet-stream,application/pdf,application/postscript,image/gif,image/jpeg,image/png,image/tiff,image/urf,application/vnd.cups-banner,application/vnd.cups-pdf,application/vnd.cups-postscript,application/vnd.cups-raw</txt-record>
+    <txt-record>URF=W8,SRGB24,CP1,RS600</txt-record>
+    <txt-record>UUID=00000000-0000-1000-8000-000000000001</txt-record>
+    <txt-record>TLS=1.2</txt-record>
+    <txt-record>Color=T</txt-record>
+    <txt-record>Duplex=F</txt-record>
+    <txt-record>Copies=T</txt-record>
+    <txt-record>Collate=F</txt-record>
+    <txt-record>Punch=0</txt-record>
+    <txt-record>Bind=F</txt-record>
+    <txt-record>Sort=F</txt-record>
+    <txt-record>Scan=F</txt-record>
+    <txt-record>Fax=F</txt-record>
+  </service>
+
+  <!-- HTTP Printer Service (for web interface access) -->
+  <service>
+    <type>_http._tcp</type>
+    <port>631</port>
+    <txt-record>path=/printers/%PRINTER_NAME%</txt-record>
+  </service>
+
+  <!-- Printer Service for legacy discovery -->
+  <service>
+    <type>_printer._tcp</type>
+    <port>631</port>
+  </service>
+</service-group>

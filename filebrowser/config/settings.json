@@ -1,0 +1,63 @@
+{
+  "port": 80,
+  "baseURL": "",
+  "address": "",
+  "log": "stdout",
+  "database": "/database/filebrowser.db",
+  "root": "/pdfs",
+  "noAuth": true,
+  "lockPassword": false,
+  "allowCommands": false,
+  "allowEdit": false,
+  "allowNew": false,
+  "createUserDir": false,
+  "permissions": {
+    "admin": false,
+    "execute": false,
+    "create": false,
+    "rename": false,
+    "modify": false,
+    "delete": false,
+    "share": true,
+    "download": true
+  },
+  "commands": [],
+  "shell": "",
+  "branding": {
+    "name": "PDF Library",
+    "disableExternal": true,
+    "disableUsedPercentage": false,
+    "files": "",
+    "theme": "light",
+    "color": "#2196f3"
+  },
+  "tus": {
+    "chunkSize": 0,
+    "retryCount": 0
+  },
+  "defaults": {
+    "scope": "/pdfs",
+    "locale": "en",
+    "viewMode": "mosaic",
+    "singleClick": false,
+    "sorting": {
+      "by": "modified",
+      "asc": false
+    },
+    "perm": {
+      "admin": false,
+      "execute": false,
+      "create": false,
+      "rename": false,
+      "modify": false,
+      "delete": false,
+      "share": true,
+      "download": true
+    },
+    "commands": [],
+    "hideDotfiles": true,
+    "dateFormat": false
+  },
+  "authMethod": "noauth",
+  "signup": false
+}

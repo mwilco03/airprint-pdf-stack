@@ -1,0 +1,116 @@
+version: "3.8"
+
+# AirPrint PDF Stack - Docker Compose Configuration
+# Turns your server into an AirPrint-enabled virtual PDF printer
+
+# Service configuration constants
+x-common-labels: &common-labels
+  com.airprint-stack.project: "airprint-pdf-stack"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 10s
+
+services:
+  # AirPrint Service - CUPS with cups-pdf and Avahi for mDNS discovery
+  airprint:
+    build:
+      context: ./airprint
+      dockerfile: Dockerfile
+    container_name: ${AIRPRINT_CONTAINER_NAME:-airprint-cups}
+    hostname: ${AIRPRINT_HOSTNAME:-airprint-server}
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - PRINTER_NAME=${PRINTER_NAME:-Virtual-PDF}
+      - PRINTER_DESCRIPTION=${PRINTER_DESCRIPTION:-AirPrint Virtual PDF Printer}
+      - PRINTER_LOCATION=${PRINTER_LOCATION:-Home Network}
+      - PDF_OUTPUT_DIR=${PDF_OUTPUT_DIR:-/pdfs}
+      - TZ=${TZ:-UTC}
+    volumes:
+      - pdf_storage:${PDF_OUTPUT_DIR:-/pdfs}
+      - cups_config:/etc/cups
+      - cups_spool:/var/spool/cups
+    labels:
+      <<: *common-labels
+      com.airprint-stack.service: "airprint"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "lpstat -r || exit 1"]
+
+  # PDF Gallery - Modern web interface for browsing PDFs
+  pdf-gallery:
+    image: nginx:alpine
+    container_name: ${GALLERY_CONTAINER_NAME:-pdf-gallery}
+    restart: unless-stopped
+    ports:
+      - "${GALLERY_PORT:-8081}:80"
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - pdf_storage:/pdfs:ro
+    depends_on:
+      airprint:
+        condition: service_healthy
+    labels:
+      <<: *common-labels
+      com.airprint-stack.service: "pdf-gallery"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+
+  # FileBrowser - Advanced file management interface
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: ${FILEBROWSER_CONTAINER_NAME:-pdf-filebrowser}
+    restart: unless-stopped
+    ports:
+      - "${FILEBROWSER_PORT:-8080}:80"
+    environment:
+      - TZ=${TZ:-UTC}
+      - FB_NOAUTH=true
+      - FB_ROOT=/pdfs
+      - FB_PORT=80
+    volumes:
+      - pdf_storage:/pdfs:ro
+      - ./filebrowser/config/settings.json:/.filebrowser.json:ro
+      - filebrowser_db:/database
+    depends_on:
+      airprint:
+        condition: service_healthy
+    labels:
+      <<: *common-labels
+      com.airprint-stack.service: "filebrowser"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+
+volumes:
+  # Shared PDF storage volume
+  pdf_storage:
+    name: ${PDF_VOLUME_NAME:-airprint-pdfs}
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PDF_HOST_PATH:-./pdfs}
+      o: bind
+
+  # CUPS configuration persistence
+  cups_config:
+    name: ${CUPS_CONFIG_VOLUME:-airprint-cups-config}
+
+  # CUPS spool directory
+  cups_spool:
+    name: ${CUPS_SPOOL_VOLUME:-airprint-cups-spool}
+
+  # FileBrowser database
+  filebrowser_db:
+    name: ${FILEBROWSER_DB_VOLUME:-airprint-filebrowser-db}
+
+networks:
+  default:
+    name: ${NETWORK_NAME:-airprint-network}

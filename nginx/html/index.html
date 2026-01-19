@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Gallery - AirPrint Stack</title>
+    <style>
+        /* CSS Variables for theming */
+        :root {
+            --color-primary: #2563eb;
+            --color-primary-dark: #1d4ed8;
+            --color-secondary: #64748b;
+            --color-success: #22c55e;
+            --color-background: #f8fafc;
+            --color-surface: #ffffff;
+            --color-text: #1e293b;
+            --color-text-muted: #64748b;
+            --color-border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --transition-fast: 150ms ease;
+            --transition-normal: 250ms ease;
+        }
+
+        /* Reset and base styles */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            background: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            padding: 1rem 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stats-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stats-group {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-primary);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 0.625rem 1rem 0.625rem 2.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            width: 280px;
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-text-muted);
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--color-surface);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-background);
+        }
+
+        .btn svg {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* Main content */
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* PDF Grid */
+        .pdf-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* PDF Card */
+        .pdf-card {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border);
+            overflow: hidden;
+            transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+        }
+
+        .pdf-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .pdf-preview {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .pdf-preview svg {
+            width: 64px;
+            height: 64px;
+            color: #dc2626;
+            opacity: 0.8;
+        }
+
+        .pdf-info {
+            padding: 1rem;
+        }
+
+        .pdf-name {
+            font-weight: 600;
+            font-size: 0.9375rem;
+            color: var(--color-text);
+            margin-bottom: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pdf-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8125rem;
+            color: var(--color-text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .pdf-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .pdf-meta-item svg {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+
+        .pdf-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .pdf-actions .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 0.5rem;
+            font-size: 0.8125rem;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--color-text-muted);
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1.5rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--color-text);
+        }
+
+        .empty-state p {
+            font-size: 0.9375rem;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error state */
+        .error-state {
+            text-align: center;
+            padding: 2rem;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: var(--radius-md);
+            color: #dc2626;
+        }
+
+        /* Auto-refresh indicator */
+        .refresh-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            color: var(--color-text-muted);
+        }
+
+        .refresh-indicator.active svg {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .stats-bar {
+                padding: 1rem;
+            }
+
+            .stats-content {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .stats-group {
+                justify-content: space-around;
+            }
+
+            .controls {
+                width: 100%;
+            }
+
+            .search-box {
+                flex: 1;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .main {
+                padding: 1rem;
+            }
+
+            .pdf-grid {
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .pdf-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1>
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                PDF Gallery
+            </h1>
+            <p>Browse and download your printed documents</p>
+        </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stats-content">
+            <div class="stats-group">
+                <div class="stat-item">
+                    <span class="stat-value" id="total-count">0</span>
+                    <span class="stat-label">Total PDFs</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="total-size">0 B</span>
+                    <span class="stat-label">Total Size</span>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="search-box">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Search PDFs..." autocomplete="off">
+                </div>
+                <button class="btn btn-secondary" id="refresh-btn" title="Refresh">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Refresh
+                </button>
+                <div class="refresh-indicator" id="refresh-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    <span>Auto-refresh: <span id="refresh-countdown">30</span>s</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div id="content">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading PDFs...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Configuration constants
+        const CONFIG = {
+            API_ENDPOINT: '/api/pdfs/',
+            PDF_BASE_URL: '/pdfs/',
+            REFRESH_INTERVAL: 30000,
+            DEBOUNCE_DELAY: 300
+        };
+
+        // State management
+        const state = {
+            pdfs: [],
+            filteredPdfs: [],
+            searchQuery: '',
+            isLoading: true,
+            error: null,
+            refreshCountdown: CONFIG.REFRESH_INTERVAL / 1000
+        };
+
+        // DOM Elements
+        const elements = {
+            content: document.getElementById('content'),
+            searchInput: document.getElementById('search-input'),
+            refreshBtn: document.getElementById('refresh-btn'),
+            refreshIndicator: document.getElementById('refresh-indicator'),
+            refreshCountdown: document.getElementById('refresh-countdown'),
+            totalCount: document.getElementById('total-count'),
+            totalSize: document.getElementById('total-size')
+        };
+
+        // Utility functions
+        const utils = {
+            formatFileSize(bytes) {
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                let unitIndex = 0;
+                let size = bytes;
+
+                while (size >= 1024 && unitIndex < units.length - 1) {
+                    size /= 1024;
+                    unitIndex++;
+                }
+
+                return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
+            },
+
+            formatDate(dateString) {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 0) {
+                    return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                } else if (diffDays === 1) {
+                    return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                } else if (diffDays < 7) {
+                    return date.toLocaleDateString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+                } else {
+                    return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+                }
+            },
+
+            debounce(func, delay) {
+                let timeoutId;
+                return (...args) => {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => func.apply(this, args), delay);
+                };
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        };
+
+        // API functions
+        const api = {
+            async fetchPdfs() {
+                const response = await fetch(CONFIG.API_ENDPOINT);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Filter only PDF files and sort by modification time (newest first)
+                return data
+                    .filter(item => item.type === 'file' && item.name.toLowerCase().endsWith('.pdf'))
+                    .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+            }
+        };
+
+        // Render functions
+        const render = {
+            loading() {
+                return `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading PDFs...</p>
+                    </div>
+                `;
+            },
+
+            error(message) {
+                return `
+                    <div class="error-state">
+                        <p><strong>Error:</strong> ${utils.escapeHtml(message)}</p>
+                        <button class="btn btn-primary" onclick="app.refresh()" style="margin-top: 1rem;">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+            },
+
+            empty() {
+                return `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                        <h2>No PDFs found</h2>
+                        <p>${state.searchQuery ? 'Try a different search term' : 'Print something to see it here!'}</p>
+                    </div>
+                `;
+            },
+
+            pdfCard(pdf) {
+                const pdfUrl = CONFIG.PDF_BASE_URL + encodeURIComponent(pdf.name);
+                return `
+                    <article class="pdf-card">
+                        <div class="pdf-preview">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="pdf-info">
+                            <h3 class="pdf-name" title="${utils.escapeHtml(pdf.name)}">${utils.escapeHtml(pdf.name)}</h3>
+                            <div class="pdf-meta">
+                                <span class="pdf-meta-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                    ${utils.formatFileSize(pdf.size)}
+                                </span>
+                                <span class="pdf-meta-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    ${utils.formatDate(pdf.mtime)}
+                                </span>
+                            </div>
+                            <div class="pdf-actions">
+                                <a href="${pdfUrl}" target="_blank" class="btn btn-secondary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    View
+                                </a>
+                                <a href="${pdfUrl}" download class="btn btn-primary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    Download
+                                </a>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            },
+
+            grid(pdfs) {
+                if (pdfs.length === 0) {
+                    return this.empty();
+                }
+
+                return `
+                    <div class="pdf-grid">
+                        ${pdfs.map(pdf => this.pdfCard(pdf)).join('')}
+                    </div>
+                `;
+            },
+
+            stats(pdfs) {
+                const totalSize = pdfs.reduce((acc, pdf) => acc + pdf.size, 0);
+                elements.totalCount.textContent = pdfs.length;
+                elements.totalSize.textContent = utils.formatFileSize(totalSize);
+            },
+
+            update() {
+                if (state.isLoading) {
+                    elements.content.innerHTML = this.loading();
+                } else if (state.error) {
+                    elements.content.innerHTML = this.error(state.error);
+                } else {
+                    elements.content.innerHTML = this.grid(state.filteredPdfs);
+                    this.stats(state.pdfs);
+                }
+            }
+        };
+
+        // Application logic
+        const app = {
+            async refresh() {
+                state.isLoading = true;
+                state.error = null;
+                render.update();
+
+                elements.refreshIndicator.classList.add('active');
+
+                try {
+                    state.pdfs = await api.fetchPdfs();
+                    this.filterPdfs();
+                } catch (error) {
+                    state.error = error.message;
+                    console.error('Failed to fetch PDFs:', error);
+                } finally {
+                    state.isLoading = false;
+                    elements.refreshIndicator.classList.remove('active');
+                    render.update();
+                }
+
+                // Reset countdown
+                state.refreshCountdown = CONFIG.REFRESH_INTERVAL / 1000;
+            },
+
+            filterPdfs() {
+                const query = state.searchQuery.toLowerCase().trim();
+
+                if (!query) {
+                    state.filteredPdfs = [...state.pdfs];
+                } else {
+                    state.filteredPdfs = state.pdfs.filter(pdf =>
+                        pdf.name.toLowerCase().includes(query)
+                    );
+                }
+
+                render.update();
+            },
+
+            handleSearch: utils.debounce(function(query) {
+                state.searchQuery = query;
+                app.filterPdfs();
+            }, CONFIG.DEBOUNCE_DELAY),
+
+            startAutoRefresh() {
+                // Update countdown every second
+                setInterval(() => {
+                    state.refreshCountdown--;
+                    elements.refreshCountdown.textContent = state.refreshCountdown;
+
+                    if (state.refreshCountdown <= 0) {
+                        this.refresh();
+                    }
+                }, 1000);
+            },
+
+            init() {
+                // Event listeners
+                elements.searchInput.addEventListener('input', (e) => {
+                    this.handleSearch(e.target.value);
+                });
+
+                elements.refreshBtn.addEventListener('click', () => {
+                    this.refresh();
+                });
+
+                // Initial load
+                this.refresh();
+
+                // Start auto-refresh
+                this.startAutoRefresh();
+            }
+        };
+
+        // Initialize on DOM ready
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>
