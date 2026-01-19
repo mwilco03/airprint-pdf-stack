@@ -14,21 +14,43 @@ A complete Docker stack that turns any server into an AirPrint-enabled virtual p
 
 ## Quick Start
 
-### Option 1: Automated Setup
+### One-Line Install (Recommended)
 
 ```bash
-# Clone or download the repository
-git clone <repository-url>
+curl -fsSL https://raw.githubusercontent.com/mwilco03/airprint-pdf-stack/main/bootstrap.sh | bash
+```
+
+This will:
+- Check prerequisites (Docker, Docker Compose)
+- Download and configure the stack
+- Build Docker images
+- Start all services
+- Display access URLs
+
+**Custom install location:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mwilco03/airprint-pdf-stack/main/bootstrap.sh | bash -s -- /opt/airprint
+```
+
+### Option 2: Clone and Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/mwilco03/airprint-pdf-stack.git
 cd airprint-pdf-stack
 
 # Run the setup script
-chmod +x start.sh
 ./start.sh
 ```
 
-### Option 2: Manual Setup
+### Option 3: Manual Setup
 
 ```bash
+# Clone the repository
+git clone https://github.com/mwilco03/airprint-pdf-stack.git
+cd airprint-pdf-stack
+
 # Create required directories
 mkdir -p pdfs filebrowser/database
 chmod 1777 pdfs
@@ -117,7 +139,8 @@ airprint-pdf-stack/
 ├── docker-compose.yml    # Service orchestration
 ├── .env.example          # Environment template
 ├── .env                  # Your configuration (create from .env.example)
-├── start.sh              # Automated setup script
+├── bootstrap.sh          # One-line installer script
+├── start.sh              # Local setup script
 ├── Makefile              # Management commands
 ├── README.md             # This file
 ├── pdfs/                 # PDF storage (created automatically)
