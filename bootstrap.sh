@@ -20,6 +20,19 @@ readonly REPO_BRANCH="main"
 readonly DEFAULT_INSTALL_DIR="${HOME}/airprint-pdf-stack"
 readonly INSTALL_DIR="${1:-$DEFAULT_INSTALL_DIR}"
 readonly MIN_DOCKER_VERSION="20.0.0"
+readonly PORT_INCREMENT=1000
+readonly MAX_PORT_ATTEMPTS=10
+
+# Default ports
+readonly DEFAULT_CUPS_PORT=631
+readonly DEFAULT_FILEBROWSER_PORT=8080
+readonly DEFAULT_GALLERY_PORT=8081
+
+# Assigned ports (will be set during port checking)
+CUPS_PORT=""
+FILEBROWSER_PORT=""
+GALLERY_PORT=""
+PORTS_CHANGED=false
 
 # =============================================================================
 # Colors
@@ -208,30 +221,92 @@ check_git() {
     fi
 }
 
-check_ports() {
-    log_step "Checking if required ports are available..."
+is_port_in_use() {
+    local port=$1
 
-    local ports=(631 8080 8081 5353)
-    local blocked_ports=()
+    if command_exists ss; then
+        ss -tuln 2>/dev/null | grep -q ":${port} " && return 0
+    elif command_exists netstat; then
+        netstat -tuln 2>/dev/null | grep -q ":${port} " && return 0
+    elif command_exists lsof; then
+        lsof -i ":${port}" &>/dev/null && return 0
+    fi
 
-    for port in "${ports[@]}"; do
-        if command_exists ss; then
-            if ss -tuln 2>/dev/null | grep -q ":${port} "; then
-                blocked_ports+=("$port")
-            fi
-        elif command_exists netstat; then
-            if netstat -tuln 2>/dev/null | grep -q ":${port} "; then
-                blocked_ports+=("$port")
-            fi
+    return 1
+}
+
+find_available_port() {
+    local default_port=$1
+    local service_name=$2
+    local port=$default_port
+    local attempts=0
+
+    while [[ $attempts -lt $MAX_PORT_ATTEMPTS ]]; do
+        if ! is_port_in_use "$port"; then
+            echo "$port"
+            return 0
         fi
+
+        # Increment by PORT_INCREMENT (1000)
+        port=$((port + PORT_INCREMENT))
+        ((attempts++))
     done
 
-    if [[ ${#blocked_ports[@]} -gt 0 ]]; then
-        log_warning "The following ports may be in use: ${blocked_ports[*]}"
-        log_info "You can change ports in .env after installation"
-    else
-        log_success "Required ports appear to be available"
+    # Failed to find available port
+    echo ""
+    return 1
+}
+
+check_ports() {
+    log_step "Checking and assigning available ports..."
+
+    local port_changes=()
+
+    # Check CUPS port (631)
+    CUPS_PORT=$(find_available_port $DEFAULT_CUPS_PORT "CUPS")
+    if [[ -z "$CUPS_PORT" ]]; then
+        log_error "Could not find available port for CUPS (tried $DEFAULT_CUPS_PORT - $((DEFAULT_CUPS_PORT + PORT_INCREMENT * MAX_PORT_ATTEMPTS)))"
+        exit 1
     fi
+    if [[ "$CUPS_PORT" -ne "$DEFAULT_CUPS_PORT" ]]; then
+        port_changes+=("CUPS: $DEFAULT_CUPS_PORT -> $CUPS_PORT")
+        PORTS_CHANGED=true
+    fi
+
+    # Check FileBrowser port (8080)
+    FILEBROWSER_PORT=$(find_available_port $DEFAULT_FILEBROWSER_PORT "FileBrowser")
+    if [[ -z "$FILEBROWSER_PORT" ]]; then
+        log_error "Could not find available port for FileBrowser (tried $DEFAULT_FILEBROWSER_PORT - $((DEFAULT_FILEBROWSER_PORT + PORT_INCREMENT * MAX_PORT_ATTEMPTS)))"
+        exit 1
+    fi
+    if [[ "$FILEBROWSER_PORT" -ne "$DEFAULT_FILEBROWSER_PORT" ]]; then
+        port_changes+=("FileBrowser: $DEFAULT_FILEBROWSER_PORT -> $FILEBROWSER_PORT")
+        PORTS_CHANGED=true
+    fi
+
+    # Check Gallery port (8081)
+    GALLERY_PORT=$(find_available_port $DEFAULT_GALLERY_PORT "PDF Gallery")
+    if [[ -z "$GALLERY_PORT" ]]; then
+        log_error "Could not find available port for PDF Gallery (tried $DEFAULT_GALLERY_PORT - $((DEFAULT_GALLERY_PORT + PORT_INCREMENT * MAX_PORT_ATTEMPTS)))"
+        exit 1
+    fi
+    if [[ "$GALLERY_PORT" -ne "$DEFAULT_GALLERY_PORT" ]]; then
+        port_changes+=("PDF Gallery: $DEFAULT_GALLERY_PORT -> $GALLERY_PORT")
+        PORTS_CHANGED=true
+    fi
+
+    # Report results
+    if [[ "$PORTS_CHANGED" == "true" ]]; then
+        log_warning "Some default ports are in use. Auto-assigned alternative ports:"
+        for change in "${port_changes[@]}"; do
+            log_info "  $change"
+        done
+        echo ""
+    else
+        log_success "All default ports are available"
+    fi
+
+    log_info "Port assignments: CUPS=$CUPS_PORT, FileBrowser=$FILEBROWSER_PORT, Gallery=$GALLERY_PORT"
 }
 
 check_privileges() {
@@ -302,6 +377,19 @@ setup_environment() {
         log_success ".env file created"
     fi
 
+    # Update ports in .env if any were changed
+    if [[ "$PORTS_CHANGED" == "true" ]] && [[ -f ".env" ]]; then
+        log_step "Updating .env with assigned ports..."
+
+        # Update or add port configurations
+        update_env_var "GALLERY_PORT" "$GALLERY_PORT"
+        update_env_var "FILEBROWSER_PORT" "$FILEBROWSER_PORT"
+        # Note: CUPS port is handled via host networking, but we track it for reference
+        update_env_var "CUPS_PORT" "$CUPS_PORT"
+
+        log_success "Port configuration updated in .env"
+    fi
+
     # Create required directories
     log_step "Creating directories..."
     mkdir -p pdfs filebrowser/database
@@ -313,6 +401,21 @@ setup_environment() {
     chmod +x start.sh 2>/dev/null || true
     chmod +x airprint/entrypoint.sh 2>/dev/null || true
     log_success "Permissions set"
+}
+
+update_env_var() {
+    local var_name=$1
+    local var_value=$2
+    local env_file=".env"
+
+    if grep -q "^${var_name}=" "$env_file" 2>/dev/null; then
+        # Update existing variable
+        sed -i.bak "s/^${var_name}=.*/${var_name}=${var_value}/" "$env_file"
+        rm -f "${env_file}.bak"
+    else
+        # Add new variable
+        echo "${var_name}=${var_value}" >> "$env_file"
+    fi
 }
 
 build_and_start() {
@@ -372,16 +475,16 @@ verify_installation() {
     done
 
     # Test CUPS connectivity
-    log_step "Testing CUPS connectivity..."
-    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:631" 2>/dev/null | grep -q "200\|302"; then
+    log_step "Testing CUPS connectivity on port $CUPS_PORT..."
+    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CUPS_PORT}" 2>/dev/null | grep -q "200\|302"; then
         log_success "CUPS web interface is accessible"
     else
         log_warning "CUPS web interface not yet responding (may still be starting)"
     fi
 
     # Test Gallery connectivity
-    log_step "Testing PDF Gallery connectivity..."
-    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081" 2>/dev/null | grep -q "200"; then
+    log_step "Testing PDF Gallery connectivity on port $GALLERY_PORT..."
+    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${GALLERY_PORT}" 2>/dev/null | grep -q "200"; then
         log_success "PDF Gallery is accessible"
     else
         log_warning "PDF Gallery not yet responding (may still be starting)"
@@ -398,19 +501,26 @@ show_completion() {
 
     echo -e "${GREEN}${BOLD}Your AirPrint PDF Stack is now running!${NC}"
     echo ""
+
+    # Show port change notice if ports were modified
+    if [[ "$PORTS_CHANGED" == "true" ]]; then
+        echo -e "${YELLOW}${BOLD}Note: Some ports were already in use. Alternative ports have been assigned.${NC}"
+        echo ""
+    fi
+
     echo -e "${BOLD}Access URLs:${NC}"
     echo ""
     echo -e "  ${CYAN}PDF Gallery${NC} (Browse/Download PDFs):"
-    echo -e "    http://localhost:8081"
-    echo -e "    http://${ip}:8081"
+    echo -e "    http://localhost:${GALLERY_PORT}"
+    echo -e "    http://${ip}:${GALLERY_PORT}"
     echo ""
     echo -e "  ${CYAN}FileBrowser${NC} (Advanced File Management):"
-    echo -e "    http://localhost:8080"
-    echo -e "    http://${ip}:8080"
+    echo -e "    http://localhost:${FILEBROWSER_PORT}"
+    echo -e "    http://${ip}:${FILEBROWSER_PORT}"
     echo ""
     echo -e "  ${CYAN}CUPS Admin${NC} (Printer Administration):"
-    echo -e "    http://localhost:631"
-    echo -e "    http://${ip}:631"
+    echo -e "    http://localhost:${CUPS_PORT}"
+    echo -e "    http://${ip}:${CUPS_PORT}"
     echo ""
     echo -e "${BOLD}Printer Name:${NC} ${GREEN}Virtual-PDF${NC}"
     echo ""
@@ -418,10 +528,20 @@ show_completion() {
     echo "  1. Connect to the same WiFi network as this server"
     echo "  2. Open any app and tap Share > Print"
     echo "  3. Select 'Virtual-PDF' printer"
-    echo "  4. View your PDFs at http://${ip}:8081"
+    echo "  4. View your PDFs at http://${ip}:${GALLERY_PORT}"
     echo ""
     echo -e "${BOLD}Installation Directory:${NC} ${INSTALL_DIR}"
     echo ""
+
+    # Show port summary if changed
+    if [[ "$PORTS_CHANGED" == "true" ]]; then
+        echo -e "${BOLD}Port Configuration:${NC}"
+        echo "  CUPS:        ${CUPS_PORT} (default: ${DEFAULT_CUPS_PORT})"
+        echo "  FileBrowser: ${FILEBROWSER_PORT} (default: ${DEFAULT_FILEBROWSER_PORT})"
+        echo "  PDF Gallery: ${GALLERY_PORT} (default: ${DEFAULT_GALLERY_PORT})"
+        echo ""
+    fi
+
     echo -e "${BOLD}Quick Commands:${NC}"
     echo "  cd ${INSTALL_DIR}"
     echo "  make help      # Show all commands"
